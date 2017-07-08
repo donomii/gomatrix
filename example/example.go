@@ -66,7 +66,7 @@ func main () {
 	Name : roomname,
 	Preset: "public_chat",
 })
-	id := "!JHMwXpSMhcSnyAGDWB:matrix.org"
+	id := "!:matrix.org"
 	if err != nil {
 		log.Println(err)
 		log.Println("Failed!")
