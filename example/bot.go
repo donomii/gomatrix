@@ -1,6 +1,7 @@
 package main
 
 import (
+	"time"
 	"bytes"
 	"os/exec"
 	"github.com/necrophonic/go-eliza"
@@ -28,7 +29,7 @@ type FileTransfer struct {
 }
 
 //Run exec.Cmd, capture and return STDOUT
-func QuickCommandStdout (cmd *exec.Cmd) string{
+func QuickCommandStdout (cmd *exec.Cmd) string {
     fmt.Println()
     in := strings.NewReader("")
     cmd.Stdin = in 
@@ -38,9 +39,10 @@ func QuickCommandStdout (cmd *exec.Cmd) string{
     cmd.Stderr = &err
     //res := cmd.Run()
     cmd.Run()
-    //fmt.Printf("Command result: %v\n", res)
-    ret := fmt.Sprintf("%s", out)
-    //fmt.Println(ret)
+   b := out.Bytes()
+    fmt.Printf("Command result: %v\n", string(b))
+    ret := fmt.Sprintf("%s", b)
+    fmt.Println(ret)
     return ret
 }
 
@@ -85,6 +87,21 @@ func (b BBSdata) RespondToMessageFile(m *BBSmessage, t string ) {
 		bbs.Outgoing<-&BBSmessage{Message: "file", PayloadString: t, UserData: m.UserData }
 }
 
+
+func AppendStringToFile(path, text string) error {
+      f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
+      if err != nil {
+              return err
+      }
+      defer f.Close()
+
+      _, err = f.WriteString(text)
+      if err != nil {
+              return err
+      }
+      return nil
+}
+
 func (b BBSdata) HandleMessage(m *BBSmessage) {
 	message := m.PayloadString
 	lmessage := strings.ToLower(message)
@@ -96,6 +113,10 @@ Send any file to add it to the list.
 
 Or type a sentence to chat to Eliza.
 `)
+	} else if strings.HasPrefix(lmessage, "b ") {
+		str := strings.Trim(strings.Replace(message, "b ", "",  1), " ")
+		str = strings.Trim(strings.Replace(str, "B ", "",  1), " ")
+		AppendStringToFile("botfiles/blog.txt", fmt.Sprint(time.Now(), " | ",  str, "\n") )
 	} else if strings.HasPrefix(lmessage, "ip") {
 		res := QuickCommandStdout(exec.Command(`ifconfig`, `-a`))
 		b.RespondToMessageText(m, res)
@@ -112,9 +133,9 @@ Or type a sentence to chat to Eliza.
 		}
 
 		 b.RespondToMessageText(m, message)
-	} else if strings.HasPrefix(lmessage, "delete") {
+	} else if strings.HasPrefix(lmessage, "delete ") {
 	
-		numStr := strings.Trim(strings.Replace(lmessage, "delete", "",  1), " ")
+		numStr := strings.Trim(strings.Replace(lmessage, "delete ", "",  1), " ")
 		n, err := strconv.ParseInt(numStr, 10, 64)
 		log.Println("Sending file number ", n)
 		//List the received files dir
@@ -128,9 +149,9 @@ Or type a sentence to chat to Eliza.
 		filename :=  files[n].Name()
 		log.Println("Deleting file ", filename)
 		os.Remove(fmt.Sprint(b.BaseDir + "/" + b.FilesDir + "/", filename))
-	} else if strings.HasPrefix(lmessage, "file") {
+	} else if strings.HasPrefix(lmessage, "file ") {
 		
-		numStr := strings.Trim(strings.Replace(lmessage, "file", "",  1), " ")
+		numStr := strings.Trim(strings.Replace(lmessage, "file ", "",  1), " ")
 		n, err := strconv.ParseInt(numStr, 10, 64)
 		log.Println("Sending file number ", n)
 		//List the received files dir
