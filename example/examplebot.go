@@ -2,6 +2,9 @@ package main
 
 //import "github.com/kr/pretty"
 import (
+	"strings"
+	"os/exec"
+	"io/ioutil"
 	"os"
 	"time"
 	"log"
@@ -27,21 +30,16 @@ func Login(server, username, password string) *gomatrix.Client {
 	return cli
 }
 
-func ProcessResponse(resSync *gomatrix.RespSync, talkative bool) {
+func ProcessResponse(resSync *gomatrix.RespSync, talkative bool) []*gomatrix.Event {
+	ret := []*gomatrix.Event{}
 	for _,v := range resSync.Rooms.Join {
 		//fmt.Printf("%v: %# v\n\n\n", k, pretty.Formatter(v.Timeline.Events))
 		for _, e := range v.Timeline.Events {
-			if e.Type ==  "m.room.message" {
-				fmt.Printf("%v: %v\n", e.Sender, e.Content["body"])
-				if talkative {
-					if e.Sender == "@donomii:matrix.org"{
-	bbs.Incoming<-&BBSmessage{Message: "text", PayloadString:  fmt.Sprint(e.Content["body"])}
-					}
-				}
-			}
+			ret = append(ret, &e)
 		}
 
 	}
+	return ret
 }
 
 
@@ -94,7 +92,7 @@ func main () {
 	}
 
 	log.Print("Syncing...")
-	filter := `{"room":{"timeline":{"limit":50}}}`
+	filter := `{"room":{"timeline":{"limit":5000}}}`
 	resSync, err := cli.SyncRequest(5, "", filter, false, "")
 	if err != nil {
 		panic(err)
@@ -112,6 +110,7 @@ func main () {
 	log.Println(rooms)
 	id = rooms[roomname]
 	log.Println("Done!")
+	log.Println(rooms)
 
 
 	log.Print("Sending message...")
@@ -129,22 +128,59 @@ func main () {
 
 	go func() {
 		for m := range bbs.Outgoing {
+	 if m.Message == "text" {
 			log.Print("Sending message...")
 			if _, err := cli.SendText(id, m.PayloadString) ; err != nil {
 				panic(err)
 			}
 			log.Println("Done!")
+                        } else {
+			log.Print("Sending file...")
+			file, _ := os.Open(fmt.Sprint("botfiles/files/", m.PayloadString))
+			res := QuickCommandStdout(exec.Command(`file`, `-b`, `--mime-type`, "botfiles/files/"+ m.PayloadString))
+			log.Println("result '", res, "'")
+			s, _ := file.Stat()
+			res11 :=  strings.Trim(string(res), "  \n")
+			log.Println()
+			log.Println()
+			log.Println("Image type: '", res11, "'")
+			log.Println()
+			log.Println()
+			res2,err2 := cli.UploadToContentRepo(file, res11, s.Size())
+			if err2 != nil {
+				panic(err2)
+			}
+			cli.SendImage(id, m.PayloadString, res2.ContentURI)
+			//fmt.Println(res2)
+			}
 		}
 	}()
 
 	for {
-		resSync, err := cli.SyncRequest(5, nextbatch, filter, false, "")
-		ProcessResponse(resSync, true)
+		resSync, err := cli.SyncRequest(10, nextbatch, filter, false, "")
 		if err != nil {
 			panic(err)
 		}
+		//fmt.Printf("%v: %# v\n\n\n", pretty.Formatter(resSync))
+		events := ProcessResponse(resSync, true)
+		for _, e := range events {
+			//fmt.Printf("%v: %v\n", e.Sender, e)
+			if e.Sender == "@donomii:matrix.org"{
+				if e.Type ==  "m.room.message" {
+					if  fmt.Sprint(e.Content["msgtype"]) == "m.text" {
+						fmt.Printf("%v: %v\n", e.Sender, e.Content["body"])
+			bbs.Incoming<-&BBSmessage{Message: "text", PayloadString:  fmt.Sprint(e.Content["body"])}
+					} else {
+						name, res, err := cli.Download(fmt.Sprint(e.Content["url"]))
+						name =  fmt.Sprint(e.Content["body"])
+						err = ioutil.WriteFile("botfiles/files/"+name, res, 0644)
+						fmt.Println(err)
+					}
+				}
+			}
+		}
 		nextbatch = resSync.NextBatch
-		time.Sleep(2 * time.Second)
+		time.Sleep(4 * time.Second)
 	}
 	log.Println("Done!")
 }
