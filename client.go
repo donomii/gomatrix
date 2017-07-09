@@ -4,6 +4,7 @@
 package gomatrix
 
 import (
+	"strings"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -574,6 +575,29 @@ func (cli *Client) UploadLink(link string) (*RespMediaUpload, error) {
 		return nil, err
 	}
 	return cli.UploadToContentRepo(res.Body, res.Header.Get("Content-Type"), res.ContentLength)
+}
+
+// Download download a mxc url
+func (cli *Client) Download(url string) (string, []byte, error) {
+	path := strings.Replace(url, "mxc://", "", 1)
+	req, err := http.NewRequest("GET", cli.BuildBaseURL("_matrix/media/r0/download/"+path), nil)
+
+	res, err := cli.Client.Do(req)
+	if err != nil {
+		fmt.Println("Error while downloading", url, "-", err)
+		return "", nil, err
+	}
+	defer res.Body.Close()
+
+	contents, err := ioutil.ReadAll(res.Body)
+	fmt.Println(res.Header)
+	filename := res.Header["Content-Disposition"][0]
+	if err != nil {
+		fmt.Println("Error while downloading", url, "-", err)
+		return "", nil, err
+	}
+	
+	return filename, contents, err
 }
 
 // UploadToContentRepo uploads the given bytes to the content repository and returns an MXC URI.
