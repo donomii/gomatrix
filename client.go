@@ -4,7 +4,6 @@
 package gomatrix
 
 import (
-	"strings"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -14,6 +13,7 @@ import (
 	"net/url"
 	"path"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -461,10 +461,9 @@ func (cli *Client) SendFile(roomID, body, url, filename string, info FileInfo, t
 			Body:     body,
 			URL:      url,
 			FileName: filename,
-			Info:	  info,
+			Info:     info,
 		})
 }
-
 
 // SendImage sends an m.room.message event into the given room with a msgtype of m.image
 // See https://matrix.org/docs/spec/client_server/r0.2.0.html#m-image
@@ -611,7 +610,7 @@ func (cli *Client) Download(url string) (string, []byte, error) {
 		fmt.Println("Error while downloading", url, "-", err)
 		return "", nil, err
 	}
-	
+
 	return filename, contents, err
 }
 
