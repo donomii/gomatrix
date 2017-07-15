@@ -49,6 +49,12 @@ type TextMessage struct {
 	Format        string `json:"format"`
 }
 
+// FileInfo contains info about an image - http://matrix.org/docs/spec/client_server/r0.2.0.html#m-file
+type FileInfo struct {
+	MimeType string `json:"mimetype,omitempty"`
+	Size     uint   `json:"size,omitempty"`
+}
+
 // ThumbnailInfo contains info about an thumbnail image - http://matrix.org/docs/spec/client_server/r0.2.0.html#m-image
 type ThumbnailInfo struct {
 	Height   uint   `json:"h,omitempty"`
@@ -85,6 +91,16 @@ type VideoMessage struct {
 	URL     string    `json:"url"`
 	Info    VideoInfo `json:"info"`
 }
+
+// FileMessage is an m.file event
+type FileMessage struct {
+	MsgType string    `json:"msgtype"`
+	Body    string    `json:"body"`
+	URL     string    `json:"url"`
+	FileName string   `json:"filename"`
+	Info    FileInfo  `json:"info"`
+}
+
 
 // ImageMessage is an m.image event
 type ImageMessage struct {
