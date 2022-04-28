@@ -51,7 +51,7 @@ type TextMessage struct {
 
 // FileInfo contains info about an file - http://matrix.org/docs/spec/client_server/r0.2.0.html#m-file
 type FileInfo struct {
-	Mimetype string `json:"mimetype,omitempty"`
+	MimeType string `json:"mimetype,omitempty"`
 	Size     uint   `json:"size,omitempty"` //filesize in bytes
 }
 
