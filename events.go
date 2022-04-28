@@ -113,7 +113,7 @@ type FileMessage struct {
 	MsgType       string    `json:"msgtype"`
 	Body          string    `json:"body"`
 	URL           string    `json:"url"`
-	Filename      string    `json:"filename"`
+	FileName      string    `json:"filename"`
 	Info          FileInfo  `json:"info,omitempty"`
 	ThumbnailURL  string    `json:"thumbnail_url,omitempty"`
 	ThumbnailInfo ImageInfo `json:"thumbnail_info,omitempty"`
