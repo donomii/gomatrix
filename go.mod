@@ -1,3 +1,3 @@
-module github.com/matrix-org/gomatrix
+module github.com/donomii/gomatrix
 
 go 1.12
