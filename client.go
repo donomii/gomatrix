@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"mime"
 	"net/http"
 	"net/url"
 	"path"
@@ -697,26 +698,47 @@ func (cli *Client) UploadLink(link string) (*RespMediaUpload, error) {
 	return cli.UploadToContentRepo(res.Body, res.Header.Get("Content-Type"), res.ContentLength)
 }
 
-// Download download a mxc url.  Used to get sent file/photos/etc from the matrix server
-func (cli *Client) Download(url string) (string, []byte, error) {
-	path := strings.Replace(url, "mxc://", "", 1)
-	req, _ := http.NewRequest("GET", cli.BuildBaseURL("_matrix/media/r0/download/"+path), nil)
-
+// Download returns the optional filename and streams an MXC file. The caller must close the returned body.
+func (cli *Client) Download(mediaURL string) (string, io.ReadCloser, error) {
+	parsed, err := url.Parse(mediaURL)
+	if err != nil {
+		return "", nil, fmt.Errorf("invalid MXC URL %q: %s", mediaURL, err)
+	}
+	mediaID := strings.TrimPrefix(parsed.Path, "/")
+	invalidMediaID := mediaID == "" || mediaID == "." || mediaID == ".." || strings.Contains(mediaID, "/")
+	invalidAuthority := parsed.Scheme != "mxc" || parsed.Host == "" || parsed.User != nil
+	hasURLSuffix := parsed.RawQuery != "" || parsed.ForceQuery || strings.Contains(mediaURL, "#")
+	if invalidMediaID || invalidAuthority || hasURLSuffix {
+		return "", nil, fmt.Errorf("invalid MXC URL %q: expected mxc://server/media-id without credentials, query or fragment", mediaURL)
+	}
+	req, err := http.NewRequest("GET", cli.BuildBaseURL("_matrix/media/r0/download", parsed.Host, mediaID), nil)
+	if err != nil {
+		return "", nil, fmt.Errorf("create download request for %q: %s", mediaURL, err)
+	}
 	res, err := cli.Client.Do(req)
 	if err != nil {
-		fmt.Println("Error while downloading", url, "-", err)
-		return "", nil, err
+		return "", nil, fmt.Errorf("download %q: %s", mediaURL, err)
 	}
-	defer res.Body.Close()
-
-	contents, err := ioutil.ReadAll(res.Body)
-	filename := res.Header["Content-Disposition"][0]
-	if err != nil {
-		fmt.Println("Error while downloading", url, "-", err)
-		return "", nil, err
+	if res.StatusCode/100 != 2 {
+		defer res.Body.Close()
+		const errorBodyLimit = 64 * 1024
+		contents, readErr := ioutil.ReadAll(io.LimitReader(res.Body, errorBodyLimit))
+		return "", nil, HTTPError{
+			Code:         res.StatusCode,
+			Message:      fmt.Sprintf("download %q: expected HTTP 2xx, received %s: %s", mediaURL, res.Status, contents),
+			WrappedError: readErr,
+		}
 	}
-
-	return filename, contents, err
+	filename := ""
+	if disposition := res.Header.Get("Content-Disposition"); disposition != "" {
+		_, parameters, err := mime.ParseMediaType(disposition)
+		if err != nil {
+			res.Body.Close()
+			return "", nil, fmt.Errorf("download %q: invalid Content-Disposition %q: %s", mediaURL, disposition, err)
+		}
+		filename = parameters["filename"]
+	}
+	return filename, res.Body, nil
 }
 
 // UploadToContentRepo uploads the given bytes to the content repository and returns an MXC URI.
