@@ -561,7 +561,7 @@ func (cli *Client) SendFile(roomID, body, url, filename string, info FileInfo, t
 			MsgType:  "m.file",
 			Body:     body,
 			URL:      url,
-			FileName: filename,
+			Filename: filename,
 			Info:     info,
 		})
 }
@@ -714,6 +714,9 @@ func (cli *Client) Download(mediaURL string) (string, io.ReadCloser, error) {
 	req, err := http.NewRequest("GET", cli.BuildBaseURL("_matrix/media/r0/download", parsed.Host, mediaID), nil)
 	if err != nil {
 		return "", nil, fmt.Errorf("create download request for %q: %s", mediaURL, err)
+	}
+	if cli.AccessToken != "" {
+		req.Header.Set("Authorization", "Bearer "+cli.AccessToken)
 	}
 	res, err := cli.Client.Do(req)
 	if err != nil {

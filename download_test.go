@@ -14,6 +14,9 @@ func TestDownloadStreamsEscapedMedia(t *testing.T) {
 		if req.URL.EscapedPath() != "/_matrix/media/r0/download/media.example/file%23one%3Ftwo" {
 			t.Errorf("request path %q did not preserve the media identifier", req.URL.EscapedPath())
 		}
+		if req.Header.Get("Authorization") != "Bearer download-token" || req.URL.Query().Get("access_token") != "" {
+			t.Error("download did not use bearer-header authentication without a query token")
+		}
 		w.Header().Set("Content-Disposition", "attachment; filename*=UTF-8''report%20one.txt")
 		w.WriteHeader(http.StatusOK)
 		w.(http.Flusher).Flush()
@@ -22,7 +25,7 @@ func TestDownloadStreamsEscapedMedia(t *testing.T) {
 	}))
 	defer server.Close()
 	defer close(finishBody)
-	client, err := NewClient(server.URL, "", "")
+	client, err := NewClient(server.URL, "", "download-token")
 	if err != nil {
 		t.Fatal(err)
 	}
